@@ -1,2 +1,2 @@
-# dRNAw (or dr Naw?)
+# dRNAw (or Dr Naw?)
 Draw RNA
