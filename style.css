@@ -1,0 +1,31 @@
+body {
+    background-color: #f0f0f0;
+    color: #444;
+}
+
+canvas {
+    position: fixed;
+    height: 100%;
+}
+
+#info {
+    position: fixed;
+    z-index: 1;
+    background: #f0f0f0a9;
+}
+input[type=number] {
+    width: 2em;
+}
+
+label {
+    padding: 5px;
+}
+
+#initprompt {
+    font-size: 2em;
+    top: 50%;
+    position: absolute;
+    text-align: center;
+    left: 0;
+    right: 0;
+}
