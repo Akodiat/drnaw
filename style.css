@@ -29,3 +29,11 @@ label {
     left: 0;
     right: 0;
 }
+
+#hoverInfo {
+    background-color: #ffffffa4;
+	position: absolute;
+	text-align: center;
+	z-index: 100;
+	display:block;
+}

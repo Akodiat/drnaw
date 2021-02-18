@@ -1,6 +1,7 @@
 import * as THREE from './lib/three.module.js';
+import * as UTILS from './utils.js';
 import {OrbitControls} from './lib/OrbitControls.js';
-import {buildingBlocks} from './buildingBlocks.js'
+import {buildingBlocks} from './buildingBlocks.js';
 
 let camera, scene, renderer;
 let mouse, raycaster;
@@ -12,8 +13,25 @@ let orbitControls;
 let connectors = new Set();
 let connectorId = 0;
 
+let placedBlocks = new Set()
+
 init();
 render();
+
+function getCoordinateFile() {
+    saveString(JSON.stringify(
+        [...placedBlocks].map(block=>{
+            return {
+                'name': block.name,
+                'position': block.position.toArray(),
+                'orientation': block.getWorldQuaternion(new THREE.Quaternion()).toArray()
+            }
+        }), undefined, 2    // Indent
+        ).replace(          // But not too much
+            /(".+": \[)([^\]]+)/g, (_, a, b) => a + b.replace(/\s+/g, ' ')
+        ), 'buildingBlocks.json'
+    );
+}
 
 
 function saveString(text, filename) {
@@ -65,7 +83,7 @@ function init() {
     document.addEventListener("keydown", event => {
         if (event.key == 's' && event.ctrlKey) {
             event.preventDefault();
-            this.getCoordinateFile();
+            getCoordinateFile();
         }
     });
 
@@ -110,14 +128,15 @@ function updateActiveConnectorId() {
     connectorId = getNextActiveConnectorId();
 }
 
-function getSignedAngle(v1, v2, axis) {
-    let s = v1.clone().cross(v2);
-    let c = v1.clone().dot(v2);
-    let a = Math.atan2(s.length(), c);
-    if (!s.equals(axis)) {
-        a *= -1;
-    }
-    return a;
+function showHoverInfo(pos, connector) {
+    let hoverInfo = document.getElementById('hoverInfo');
+    hoverInfo.innerHTML = `${connector.parent.name}, connector ${connector.connId}`;
+    hoverInfo.style.left = pos.x  + 'px';
+    hoverInfo.style.top =  pos.y + 20 + 'px';
+    hoverInfo.hidden = false;
+}
+function hideHoverInfo() {
+    document.getElementById('hoverInfo').hidden = true;
 }
 
 function onWindowResize() {
@@ -148,9 +167,13 @@ function onDocumentMouseMove(event) {
                 rollOverMesh = createBuildingBlock(connector, true);
                 scene.add(rollOverMesh);
             }
+            //showHoverInfo(new THREE.Vector2(event.clientX, event.clientY), connector);
+            document.body.style.cursor = 'pointer';
         } else {
             scene.remove(rollOverMesh);
             rollOverMesh = undefined;
+            document.body.style.cursor = 'auto';
+            //hideHoverInfo();
         }
     }
     
@@ -171,6 +194,7 @@ function onDocumentMouseDown(event) {
                 if (connector.connection) {
                     if (connector.connection.connectionCount() == 1) {
                         scene.remove(connector.connection);
+                        placedBlocks.delete(connector.connection);
                         // Remove old connectors
                         connector.connection.children.forEach(c=>connectors.delete(c));
                         updateActiveConnectorId();
@@ -200,18 +224,22 @@ function createBuildingBlock(connector, preview, connectorId) {
     if (connector) {
         // Set position relative to previous connector
         connector.getWorldPosition(pos);
-        pos.add(connector.getDir());
+        //pos.add(connector.getDir());
     }
 
-    let b = getActiveBuildingBlock().getMesh(preview);
+    let b = getActiveBuildingBlock().createMesh(preview);
     b.position.copy(pos);
 
     if (!preview) {
         b.children.forEach(c=>connectors.add(c));
+        placedBlocks.add(b);
     }
 
     if (connector) {
         let connectedConnector = b.children[connectorId];
+
+        let dir = connector.getDir();
+        b.position.add(dir.clone().multiplyScalar(connectedConnector.position.length()));
 
         if (!preview) {
             // Make connection between the two connectors
@@ -228,7 +256,7 @@ function createBuildingBlock(connector, preview, connectorId) {
         b.applyQuaternion(q1);
 
         // Set orientation such that the two connectors are aligned
-        let angle = getSignedAngle(
+        let angle = UTILS.getSignedAngle(
             connector.getOrientation().normalize(),
             connectedConnector.getOrientation().negate().normalize(),
             connector.getDir()
