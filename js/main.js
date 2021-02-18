@@ -76,8 +76,8 @@ function init() {
     window.addEventListener('resize', onWindowResize, false);
     document.body.appendChild(renderer.domElement);
 
-    canvas.addEventListener('mousemove', onDocumentMouseMove, false);
-    canvas.addEventListener('click', onDocumentMouseDown, false);
+    canvas.addEventListener('pointermove', onDocumentMouseMove, false);
+    canvas.addEventListener('pointerdown', onDocumentMouseDown, false);
     window.addEventListener('resize', onWindowResize, false);
 
     document.addEventListener("keydown", event => {
@@ -183,6 +183,7 @@ function onDocumentMouseMove(event) {
 }
 
 function onDocumentMouseDown(event) {
+    event.preventDefault();
     if (event.button == 0) {
         if(connectors.size > 0) {
             event.preventDefault();
