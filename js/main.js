@@ -87,6 +87,8 @@ function init() {
         }
     });
 
+    document.getElementById("saveButton").onclick = getCoordinateFile;
+
     // orbit controls
     orbitControls = new OrbitControls(camera, canvas);
     orbitControls.damping = 0.2;
