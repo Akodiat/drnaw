@@ -8,6 +8,7 @@ class OxViewSystem {
         this.strandIdCounter = 0;
         this.clusterCounter = 1;
         this.box = 0;
+        this.idMaps = new Map();
     }
 
     toJSON() {
@@ -31,7 +32,7 @@ class OxViewSystem {
         );
     }
 
-    async addFromJSON(data, position, orientation) {
+    async addFromJSON(data, position, orientation, uuid) {
         const cluster = this.clusterCounter++;
         const idMap = new Map();
         let newStrands = [];
@@ -53,10 +54,6 @@ class OxViewSystem {
                     a3.applyQuaternion(orientation);
 
                     p.add(position);
-
-                    console.log(`p from ${monomer.p} to ${p.toArray()}`);
-                    console.log(`a1 from ${monomer.a1} to ${a1.toArray()}`);
-                    console.log(`a3 from ${monomer.a3} to ${a3.toArray()}`);
 
                     monomer.p = p.toArray();
                     monomer.a1 = a1.toArray();
@@ -102,7 +99,62 @@ class OxViewSystem {
                 }
             });
             this.strands.push(strand);
-        })
+        });
+
+        // Save id map to use in ligation
+        this.idMaps.set(uuid, idMap);
+    }
+
+    findById(id) {
+        for (const s of this.strands) {
+            for (const e of s.monomers) {
+                if (e.id == id) {
+                    return [s, e];
+                }
+            }
+        }
+    }
+
+    connectBuildingBlocks(b1, b1PatchId, b2, b2PatchId) {
+        // Find monomer ID's for patch pasepairs
+        let [n5b1, n3b1] = b1.buildingBlock.patchNucleotides[b1PatchId];
+        let [n5b2, n3b2] = b2.buildingBlock.patchNucleotides[b2PatchId];
+
+        // Change to actual updated IDs
+        n5b1 = this.idMaps.get(b1.uuid).get(n5b1);
+        n3b1 = this.idMaps.get(b1.uuid).get(n3b1);
+        n5b2 = this.idMaps.get(b2.uuid).get(n5b2);
+        n3b2 = this.idMaps.get(b2.uuid).get(n3b2);
+
+        this.ligate(n5b1, n3b2);
+        this.ligate(n5b2, n3b1);
+    }
+
+    ligate(id5, id3) {
+        let [strand5, end5] = this.findById(id5);
+        let [strand3, end3] = this.findById(id3);
+
+        console.assert(end5.n5 == undefined && end3.n3 == undefined,
+            "Select one nucleotide with an available 3' connection and one with an available 5'"
+        );
+
+        // strand3 will be merged into strand5
+
+        //connect the 2 element objects
+        end5.n5 = end3.id;
+        end3.n3 = end5.id;
+        // Update 5' end to include the new elements
+        strand5.end5 = end5.n5;
+
+        //check that it is not the same strand
+        if (strand5 !== strand3) {
+            // Move all monomers from strand 3 to strand 5
+            for(const e of strand3.monomers) {
+                strand5.monomers.push(e);
+            }
+            // Remove strand3
+            this.strands = this.strands.filter(s => s !== strand3);
+        }
     }
 }
 

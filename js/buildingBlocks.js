@@ -43,6 +43,7 @@ class Connector extends THREE.Mesh {
         this.dir = source.dir.clone();
         this.orientation = source.orientation.clone();
         this.buildingBlock = source.buildingBlock;
+        this.index = source.index;
 
         return this;
     }
@@ -94,8 +95,13 @@ class PrismGeometry extends THREE.ExtrudeGeometry {
 }
 
 class BuildingBlock {
-    constructor(name, color, connectors) {
+    constructor(name, color, connectors, strandConnectivity, patchNucleotides) {
         this.name = name;
+
+        console.assert(patchNucleotides.length == connectors.length,
+            `${name}: patchNucleotides needs to be the same length as connectors`
+        )
+        this.patchNucleotides = patchNucleotides;
 
         // Make sure dir and orientation are unit vectors
         this.connectors = connectors.map(e=>{
@@ -123,12 +129,12 @@ class BuildingBlock {
                 this.gltfObject = gltf.scene;
             },
             // called while loading is progressing
-            function ( xhr ) {
+            function (xhr) {
                 console.log((xhr.loaded / xhr.total * 100 ) + '% loaded');
             }
         );
 
-        let points = [];
+        let connectorBorderPoints = [];
         //Set points for the base of each connector triangle
         for (const [pos, dir, orientation] of this.connectors) {
             let q1 = new THREE.Quaternion().setFromUnitVectors(
@@ -147,12 +153,12 @@ class BuildingBlock {
                 let point = corner.clone();
                 point.applyQuaternion(q1);
                 point.applyQuaternion(q2);
-                point.add(pos.clone().sub(dir.clone().setLength(connectorSide/4)));
-                points.push(point);
+                point.add(pos.clone().sub(dir.clone().setLength(connectorSide/8)));
+                connectorBorderPoints.push(point);
             });
         }
         try {
-            this.geometry = new ConvexGeometry(points);
+            this.geometry = new ConvexGeometry(connectorBorderPoints);
         } catch (error) {
             this.geometry = new THREE.BoxBufferGeometry(.75, .75, .75);
         }
@@ -161,13 +167,39 @@ class BuildingBlock {
         this.connectionGeometry = new PrismGeometry([
             new THREE.Vector2(0, 0),
             new THREE.Vector2(0, connectorSide),
-            new THREE.Vector2(connectorSide/2, connectorSide)
+            new THREE.Vector2(connectorSide/4, connectorSide)
         ], connectorSide/2);
 
         this.connectorsObject = new THREE.Group();
+        let connectorIndex = 0;
         for (const [pos, dir, orientation] of this.connectors) {
             let connector = new Connector(pos, dir, orientation, this);
+            connector.index = connectorIndex++;
             this.connectorsObject.add(connector);
+        }
+
+        const sep = 1;
+        this.lineObject = new THREE.Group();
+        for (const [e5, e3] of strandConnectivity) {
+            let [pos5, dir5, orientation5] = this.connectors[e5];
+            let [pos3, dir3, orientation3] = this.connectors[e3];
+
+            let p5 = pos5.clone().add(orientation5.clone().setLength(sep/2));
+            let p3 = pos3.clone().add(orientation3.clone().negate().setLength(sep/2));
+
+            let dist = 1/2;
+
+            let line = UTILS.makeLine([
+                //p5,
+                p5.clone().sub(dir5.clone().setLength(dist)),
+                p3.clone().sub(dir3.clone().setLength(dist)),
+                p3
+            ], new THREE.LineBasicMaterial({color: this.material.color, linewidth: 10}))
+
+            const arrowHelper = new THREE.ArrowHelper(dir5.clone().negate(), p5, dist, 0xF0CE1E, dist/2, dist/2);
+
+            this.lineObject.add(line);
+            this.lineObject.add(arrowHelper);
         }
 
         this.connectorId = 0;
@@ -189,10 +221,11 @@ class BuildingBlock {
         block.shapeObject = this.shapeObject.clone();
         block.add(block.shapeObject);
 
-        if (this.gltfObject) {
-            block.gltfObject = this.gltfObject.clone();
-            block.add(block.gltfObject);
-        }
+        block.gltfObject = this.gltfObject.clone();
+        block.add(block.gltfObject);
+
+        block.lineObject = this.lineObject.clone();
+        block.add(block.lineObject);
 
         block.connectorsObject = this.connectorsObject.clone();
         block.add(block.connectorsObject);
@@ -218,39 +251,32 @@ let buildingBlocks = [
             v3(0, 1, 0) // Orientation, (the 3' end nucleotide minus the position)
         ],
         [v3(0, 0, 1.64978 + .5), v3(0,0,1), v3(0,-1,0)]
-    ]),
+    ], [
+        [0, 1], // One strand goes from patch 0 to 1 (5' to 3')
+        [1,0] // One strand goes from patch 1 to 0 (5' to 3')
+    ], [[
+            22, // 5' end id on patch 0
+            30 // 3' end id on patch 0
+        ],[
+            4, // 5' end id on patch 1
+            12 // 3' end id on patch 1
+        ]]
+    ),
     new BuildingBlock("kl180", new THREE.Color(.85,.7,.7), [
         [v3(0, 0, - 2 - .5), v3(0,0,-1), v3(0, 1, 0)],
         [v3(0, 0, 2 + .5), v3(0,0,1), v3(1,0,0)]
-    ]),
+    ],
+    [[0, 0], [1,1]],
+    [[132, 120], [154, 152]]
+    ),
     new BuildingBlock("crossover", new THREE.Color(.23,.37,.65), [
         [v3(-.7, .9, -1.3), v3(0,0,-1), v3(0,1, 0)],
         [v3(-.7, .9, .5), v3(0,0,1), v3(0,-1,0)],
-        [v3(.7, -.9, -.5), v3(0,0,-1), v3(1,1,0)],
-        [v3(.7, -.9, 1.3), v3(0,0,1), v3(1,-1,0)]
-    ]),
-    /*
-    new BuildingBlock("Helix", new THREE.Color(.3,.4,.8), [
-        [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)],
-        [v3(.5,0,0), v3(1,0,0), v3(0,1,0)]
-    ]),
-    new BuildingBlock("Corner", new THREE.Color(.3,.7,.5), [
-        [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)],
-        [v3(0,.5,0), v3(0,1,0), v3(1,0,0)]
-    ]),
-    new BuildingBlock("Corner2", new THREE.Color(.3,.7,.2), [
-        [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)],
-        [v3(0,0,.5), v3(0,0,1), v3(1,0,0)]
-    ]),
-    new BuildingBlock("End", new THREE.Color(0.8,.4,.3), [
-        [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)]
-    ]),
-    new BuildingBlock("Branch", new THREE.Color(0.8,.8,.2), [
-        [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)],
-        [v3(.5,0,0), v3(1,0,0), v3(0,-1,0)],
-        [v3(0,-.5,0), v3(0,-1,0), v3(1,0,0)]
-    ])
-    */
+        [v3(.7, -.9, -.5), v3(0,0,-1), v3(-1,1,0).normalize()],
+        [v3(.7, -.9, 1.3), v3(0,0,1), v3(1,-1,0).normalize()]
+    ], [[0, 1], [1, 3], [3, 2], [2, 0]],
+    [[70, 108], [109, 143], [173, 69], [144, 172]]
+    )
 ]
 
 export {BuildingBlock, buildingBlocks};

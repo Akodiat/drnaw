@@ -1,3 +1,5 @@
+import * as THREE from './lib/three.module.js';
+
 let getSignedAngle = function(v1, v2, axis) {
     v1.normalize();
     v2.normalize();
@@ -38,4 +40,9 @@ async function getJSON(path) {
         });
 }
 
-export {getSignedAngle, saveString, getJSON, setMaterialRecursively}
+function makeLine(points, material) {
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    return new THREE.Line(geometry, material);
+}
+
+export {getSignedAngle, saveString, getJSON, setMaterialRecursively, makeLine}

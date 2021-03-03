@@ -13,7 +13,6 @@ let removeMaterial;
 let orbitControls;
 
 let connectors = new Set();
-let connectorId = 0;
 
 let placedBlocks = new Set()
 
@@ -41,8 +40,14 @@ async function getCoordinateFile() {
         s.addFromJSON(
             data,
             block.position,
-            block.getWorldQuaternion(new THREE.Quaternion())
+            block.getWorldQuaternion(new THREE.Quaternion()),
+            block.uuid
         );
+    }
+    for (const c of connectors) {
+        if(c.connection) {
+            s.connectBuildingBlocks(c.getBlock(), c.index, c.connection.getBlock(), c.connection.index);
+        }
     }
     s.saveToFile("output.oxview");
 }
@@ -147,10 +152,11 @@ function onDocumentMouseMove(event) {
         if (intersects.length > 0) {
             scene.remove(rollOverMesh);
             let connector = intersects[0].object;
+            console.log(connector.index);
             // If we have already connected a building block, but it is not connected
             // further, replace it at another orientation
-            if (connector.connection && (connector.connection.connectionCount() == 1)) {
-                let b = connector.connection.buildingBlock
+            if (connector.connection && (connector.connection.getBlock().connectionCount() == 1)) {
+                let b = connector.connection.getBlock().buildingBlock;
                 rollOverMesh = placeBuildingBlock(b, connector, true);
                 rollOverMesh.scale.multiplyScalar(1.01);
                 UTILS.setMaterialRecursively(rollOverMesh, removeMaterial);
@@ -186,11 +192,11 @@ function onDocumentMouseDown(event) {
                 // If we have already connected a building block, but it is not connected
                 // further, replace it at another orientation
                 if (connector.connection) {
-                    if (connector.connection.connectionCount() == 1) {
-                        scene.remove(connector.connection);
-                        placedBlocks.delete(connector.connection);
+                    if (connector.connection.getBlock().connectionCount() == 1) {
+                        scene.remove(connector.connection.getBlock());
+                        placedBlocks.delete(connector.connection.getBlock());
                         // Remove old connectors
-                        connector.connection.connectorsObject.children.forEach(c=>connectors.delete(c));
+                        connector.connection.getBlock().connectorsObject.children.forEach(c=>connectors.delete(c));
                         getActiveBuildingBlock().updateActiveConnectorId();
                         connector.connection = undefined;
                         console.log("Replacing building block")
@@ -240,8 +246,8 @@ function placeBuildingBlock(buildingBlock, connector, preview) {
 
         if (!preview) {
             // Make connection between the two connectors
-            connectedConnector.connection = connector.getBlock();
-            connector.connection = b;
+            connectedConnector.connection = connector;
+            connector.connection = connectedConnector;
         }
 
         // Set orientation such that the new connector of specified
