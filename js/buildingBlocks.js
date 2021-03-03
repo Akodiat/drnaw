@@ -1,6 +1,74 @@
 import * as THREE from './lib/three.module.js';
 import * as UTILS from './utils.js';
 import {ConvexGeometry} from './lib/geometries/ConvexGeometry.js';
+import {GLTFLoader} from './lib/loaders/GLTFLoader.js';
+
+class Connector extends THREE.Mesh {
+    constructor(pos, dir, orientation, buildingBlock) {
+        if(buildingBlock) {
+            super(buildingBlock.connectionGeometry, buildingBlock.connectorMaterial);
+            dir.normalize();
+            orientation.normalize();
+
+            this.dir = dir;
+            this.orientation = orientation;
+            this.buildingBlock = buildingBlock;
+
+            let q1 = new THREE.Quaternion().setFromUnitVectors(
+                new THREE.Vector3(0,0,1), dir
+            );
+
+            let angle = UTILS.getSignedAngle(
+                new THREE.Vector3(0,1,0), orientation, dir
+            );
+            let q2 = new THREE.Quaternion().setFromAxisAngle(dir, angle);
+
+            this.applyQuaternion(q1);
+            this.applyQuaternion(q2);
+
+            this.position.copy(pos);
+            this.name = "connector";
+            this.dir = dir;
+            this.orientation = orientation;
+        } else {
+            // Empty default constructor
+            super()
+        }
+    }
+
+    copy(source) {
+        super.copy(source);
+        //THREE.Mesh.prototype.copy.call(this, source);
+
+        this.dir = source.dir.clone();
+        this.orientation = source.orientation.clone();
+        this.buildingBlock = source.buildingBlock;
+
+        return this;
+    }
+
+    getBlock() {
+        return this.parent.parent;
+    }
+
+    // Get direction in global coordinates
+    getDir() {
+        let q = this.parent.getWorldQuaternion(new THREE.Quaternion);
+        return this.dir.clone().applyQuaternion(q).normalize();
+    }
+
+    // Get direction in global coordinates
+    getOrientation() {
+        let q = this.parent.getWorldQuaternion(new THREE.Quaternion);
+        return this.orientation.clone().applyQuaternion(q).normalize();
+    }
+
+    // Get direction in global coordinates
+    getPos() {
+        let q = this.parent.getWorldQuaternion(new THREE.Quaternion);
+        return this.position.clone().applyQuaternion(q);
+    }
+}
 
 // From https://stackoverflow.com/a/27194985
 class PrismGeometry extends THREE.ExtrudeGeometry {
@@ -47,7 +115,18 @@ class BuildingBlock {
             opacity: 0.5,
             transparent: true
         });
-        let connectorSide = 0.5;
+        let connectorSide = 2;
+
+        // Load glTF nucleotide object
+        const loader = new GLTFLoader();
+        loader.load(`resources/${name}.gltf`, (gltf)=>{
+                this.gltfObject = gltf.scene;
+            },
+            // called while loading is progressing
+            function ( xhr ) {
+                console.log((xhr.loaded / xhr.total * 100 ) + '% loaded');
+            }
+        );
 
         let points = [];
         //Set points for the base of each connector triangle
@@ -60,10 +139,10 @@ class BuildingBlock {
             );
             let q2 = new THREE.Quaternion().setFromAxisAngle(dir, angle);
             [
-                new THREE.Vector3(-connectorSide/4,-connectorSide/2, 0),
-                new THREE.Vector3(-connectorSide/4, connectorSide/2, 0),
-                new THREE.Vector3(connectorSide/4, connectorSide/2, 0),
-                new THREE.Vector3(connectorSide/4, -connectorSide/2, 0),
+                new THREE.Vector3(-connectorSide/3,-connectorSide/2, 0),
+                new THREE.Vector3(-connectorSide/3, connectorSide/2, 0),
+                new THREE.Vector3(connectorSide/3, connectorSide/2, 0),
+                new THREE.Vector3(connectorSide/3, -connectorSide/2, 0),
             ].forEach(corner=>{
                 let point = corner.clone();
                 point.applyQuaternion(q1);
@@ -77,72 +156,83 @@ class BuildingBlock {
         } catch (error) {
             this.geometry = new THREE.BoxBufferGeometry(.75, .75, .75);
         }
+        this.shapeObject = new THREE.Mesh(this.geometry, this.material);
 
         this.connectionGeometry = new PrismGeometry([
             new THREE.Vector2(0, 0),
             new THREE.Vector2(0, connectorSide),
             new THREE.Vector2(connectorSide/2, connectorSide)
         ], connectorSide/2);
+
+        this.connectorsObject = new THREE.Group();
+        for (const [pos, dir, orientation] of this.connectors) {
+            let connector = new Connector(pos, dir, orientation, this);
+            this.connectorsObject.add(connector);
+        }
+
+        this.connectorId = 0;
+    }
+
+    updateActiveConnectorId() {
+        this.connectorId = (this.getActiveConnectorId() + 1) % this.connectors.length
+    }
+
+    getActiveConnectorId() {
+        return this.connectorId % this.connectors.length;
     }
 
     createMesh(preview) {
-        let material = preview ? this.previewMaterial : this.material;
-        let connectorMaterial = preview ? this.previewMaterial : this.connectorMaterial;
-        let mesh = new THREE.Mesh(this.geometry, material);
-        mesh.name = this.name;
-        let connectorId = 0;
-        for (const [pos, dir, orientation] of this.connectors) {
-            dir.normalize();
-            orientation.normalize();
-            let connector = new THREE.Mesh(this.connectionGeometry, connectorMaterial);
-            //connector.up = orientation;
+        let block = new THREE.Group();
+        block.name = this.name;
+        block.buildingBlock = this;
 
-            let q1 = new THREE.Quaternion().setFromUnitVectors(
-                new THREE.Vector3(0,0,1), dir
-            );
+        block.shapeObject = this.shapeObject.clone();
+        block.add(block.shapeObject);
 
-            let angle = UTILS.getSignedAngle(
-                new THREE.Vector3(0,1,0), orientation, dir
-            );
-            let q2 = new THREE.Quaternion().setFromAxisAngle(dir, angle);
-
-            connector.applyQuaternion(q1);
-            connector.applyQuaternion(q2);
-
-            connector.connId = connectorId++;
-
-            connector.position.copy(pos);
-            connector.name = "connector";
-            connector.dir = dir;
-            connector.getDir = () => {
-                // Get direction in global coordinates
-                return dir.clone().applyQuaternion(mesh.quaternion);
-            };
-            connector.orientation = orientation;
-            connector.getOrientation = () => {
-                // Get direction in global coordinates
-                return orientation.clone().applyQuaternion(mesh.quaternion);
-            };
-            //connector.scale.multiplyScalar(0.9);
-            mesh.add(connector);
+        if (this.gltfObject) {
+            block.gltfObject = this.gltfObject.clone();
+            block.add(block.gltfObject);
         }
-        mesh.connectionCount = () => mesh.children.filter(c => c.connection).length;
-        //mesh.scale.multiplyScalar(0.9);
-        return mesh;
+
+        block.connectorsObject = this.connectorsObject.clone();
+        block.add(block.connectorsObject);
+        block.connectionCount = () => block.connectorsObject.children.filter(c => c.connection).length;
+
+        if(preview) {
+            block.shapeObject.material = this.previewMaterial
+            block.connectorsObject.children.forEach(c=>c.material = this.previewMaterial);
+        }
+
+        return block;
     };
 }
 
 // Shorthand for Vector3
-let v3 = (x,y,z)=>{return new THREE.Vector3(x,y,z)}  
+let v3 = (x,y,z)=>{return new THREE.Vector3(x,y,z)}
 
 let buildingBlocks = [
+    new BuildingBlock("11bp_helix", new THREE.Color(.87,.87,.88), [
+        [
+            v3(0, 0, -1.60850 - .5), // Position of patch (take mean of the nucleotides in the pair)
+            v3(0,0,-1), // Direction of patch (probably similar to prev), also A3 of 5' end nucleotide
+            v3(0, 1, 0) // Orientation, (the 3' end nucleotide minus the position)
+        ],
+        [v3(0, 0, 1.64978 + .5), v3(0,0,1), v3(0,-1,0)]
+    ]),
+    new BuildingBlock("kl180", new THREE.Color(.85,.7,.7), [
+        [v3(0, 0, - 2 - .5), v3(0,0,-1), v3(0, 1, 0)],
+        [v3(0, 0, 2 + .5), v3(0,0,1), v3(1,0,0)]
+    ]),
+    new BuildingBlock("crossover", new THREE.Color(.23,.37,.65), [
+        [v3(-.7, .9, -1.3), v3(0,0,-1), v3(0,1, 0)],
+        [v3(-.7, .9, .5), v3(0,0,1), v3(0,-1,0)],
+        [v3(.7, -.9, -.5), v3(0,0,-1), v3(1,1,0)],
+        [v3(.7, -.9, 1.3), v3(0,0,1), v3(1,-1,0)]
+    ]),
+    /*
     new BuildingBlock("Helix", new THREE.Color(.3,.4,.8), [
         [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)],
         [v3(.5,0,0), v3(1,0,0), v3(0,1,0)]
-    ]),
-    new BuildingBlock("Helix2", new THREE.Color(.3,.4,.8), [
-        [v3(-.25,0,0), v3(-1,0,0), v3(0,0,1)],
-        [v3(.25,0,0), v3(1,0,0), v3(0,-1,0)]
     ]),
     new BuildingBlock("Corner", new THREE.Color(.3,.7,.5), [
         [v3(-.5,0,0), v3(-1,0,0), v3(0,1,0)],
@@ -160,6 +250,7 @@ let buildingBlocks = [
         [v3(.5,0,0), v3(1,0,0), v3(0,-1,0)],
         [v3(0,-.5,0), v3(0,-1,0), v3(1,0,0)]
     ])
+    */
 ]
 
 export {BuildingBlock, buildingBlocks};

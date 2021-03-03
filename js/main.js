@@ -2,11 +2,13 @@ import * as THREE from './lib/three.module.js';
 import * as UTILS from './utils.js';
 import {OrbitControls} from './lib/OrbitControls.js';
 import {buildingBlocks} from './buildingBlocks.js';
+import {OxViewSystem} from './oxviewIO.js';
 
 let camera, scene, renderer;
 let mouse, raycaster;
 
 let rollOverMesh;
+let removeMaterial;
 
 let orbitControls;
 
@@ -18,8 +20,9 @@ let placedBlocks = new Set()
 init();
 render();
 
-function getCoordinateFile() {
-    saveString(JSON.stringify(
+async function getCoordinateFile() {
+
+    UTILS.saveString(JSON.stringify(
         [...placedBlocks].map(block=>{
             return {
                 'name': block.name,
@@ -31,17 +34,17 @@ function getCoordinateFile() {
             /(".+": \[)([^\]]+)/g, (_, a, b) => a + b.replace(/\s+/g, ' ')
         ), 'buildingBlocks.json'
     );
-}
 
-
-function saveString(text, filename) {
-    let element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    element.setAttribute('download', filename);
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    let s = new OxViewSystem();
+    for (const block of placedBlocks) {
+        const data = await UTILS.getJSON(`resources/${block.name}.oxview`);
+        s.addFromJSON(
+            data,
+            block.position,
+            block.getWorldQuaternion(new THREE.Quaternion())
+        );
+    }
+    s.saveToFile("output.oxview");
 }
 
 function init() {
@@ -60,6 +63,12 @@ function init() {
     let directionalLight = new THREE.DirectionalLight(0xffffff);
     directionalLight.position.set(1, 0.75, 0.5).normalize();
     scene.add(directionalLight);
+
+    removeMaterial = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(.9,.1,.1),
+        opacity: 0.5,
+        transparent: true
+    });
 
     let canvas = document.getElementById("threeCanvas");
     renderer = new THREE.WebGLRenderer({
@@ -89,6 +98,9 @@ function init() {
 
     document.getElementById("saveButton").onclick = getCoordinateFile;
 
+    document.getElementById("showShapes").onchange = updateVisibility;
+    document.getElementById("showNucleotides").onchange = updateVisibility;
+
     // orbit controls
     orbitControls = new OrbitControls(camera, canvas);
     orbitControls.damping = 0.2;
@@ -96,49 +108,26 @@ function init() {
 
     let palette = document.getElementById('palette');
     buildingBlocks.forEach((b,i)=>{
+        let l = document.createElement('label');
+        //l.for = e.id;
+        l.style.background = '#'+b.color.getHexString();
+
         let e = document.createElement('input');
         e.type = 'radio';
         e.name = 'buildingBlock'
         e.value = b.name;
         e.id = 'b.name'+i;
-        e.index = i;
         e.checked = i==0;
-        palette.append(e);
-
-        let l = document.createElement('label');
-        l.for = e.id;
-        l.style.background = '#'+b.color.getHexString();
-        l.innerHTML = b.name;
+        l.append(e);
+        l.append(b.name);
 
         palette.append(l);
     });
 }
 
 function getActiveBuildingBlock() {
-    return buildingBlocks[document.querySelector('input[name="buildingBlock"]:checked').index];
-}
-
-function getActiveConnectorId() {
-    return connectorId % getActiveBuildingBlock().connectors.length;
-}
-
-function getNextActiveConnectorId() {
-    return (getActiveConnectorId() + 1) % getActiveBuildingBlock().connectors.length;
-}
-
-function updateActiveConnectorId() {
-    connectorId = getNextActiveConnectorId();
-}
-
-function showHoverInfo(pos, connector) {
-    let hoverInfo = document.getElementById('hoverInfo');
-    hoverInfo.innerHTML = `${connector.parent.name}, connector ${connector.connId}`;
-    hoverInfo.style.left = pos.x  + 'px';
-    hoverInfo.style.top =  pos.y + 20 + 'px';
-    hoverInfo.hidden = false;
-}
-function hideHoverInfo() {
-    document.getElementById('hoverInfo').hidden = true;
+    const name = document.querySelector('input[name="buildingBlock"]:checked').value;
+    return buildingBlocks.find(b => b.name == name);
 }
 
 function onWindowResize() {
@@ -161,12 +150,14 @@ function onDocumentMouseMove(event) {
             // If we have already connected a building block, but it is not connected
             // further, replace it at another orientation
             if (connector.connection && (connector.connection.connectionCount() == 1)) {
-                rollOverMesh = createBuildingBlock(connector, true, getNextActiveConnectorId());
-                rollOverMesh.scale.multiplyScalar(1.2);
+                let b = connector.connection.buildingBlock
+                rollOverMesh = placeBuildingBlock(b, connector, true);
+                rollOverMesh.scale.multiplyScalar(1.01);
+                UTILS.setMaterialRecursively(rollOverMesh, removeMaterial);
                 scene.add(rollOverMesh);
             }
             if (!connector.connection) {
-                rollOverMesh = createBuildingBlock(connector, true);
+                rollOverMesh = placeBuildingBlock(getActiveBuildingBlock(), connector, true);
                 scene.add(rollOverMesh);
             }
             //showHoverInfo(new THREE.Vector2(event.clientX, event.clientY), connector);
@@ -178,7 +169,7 @@ function onDocumentMouseMove(event) {
             //hideHoverInfo();
         }
     }
-    
+
     render();
 }
 
@@ -199,74 +190,79 @@ function onDocumentMouseDown(event) {
                         scene.remove(connector.connection);
                         placedBlocks.delete(connector.connection);
                         // Remove old connectors
-                        connector.connection.children.forEach(c=>connectors.delete(c));
-                        updateActiveConnectorId();
+                        connector.connection.connectorsObject.children.forEach(c=>connectors.delete(c));
+                        getActiveBuildingBlock().updateActiveConnectorId();
                         connector.connection = undefined;
                         console.log("Replacing building block")
                     } else {
                         console.log("Cannot replace connected building block")
                     }
                 } else {
-                    let buildingBlock = createBuildingBlock(connector)
+                    let buildingBlock = placeBuildingBlock(getActiveBuildingBlock(), connector)
                     scene.add(buildingBlock);
                 }
             }
         } else {
             document.getElementById("initprompt").style.display = 'none';
-            scene.add(createBuildingBlock());
+            scene.add(placeBuildingBlock(getActiveBuildingBlock()));
         }
         render();
     }
 }
 
-function createBuildingBlock(connector, preview, connectorId) {
-    if (connectorId === undefined) {
-        connectorId = getActiveConnectorId();
-    }
+function updateVisibility() {
+    placedBlocks.forEach(b=>{
+        b.gltfObject.visible = document.getElementById('showNucleotides').checked;
+        b.shapeObject.visible = document.getElementById('showShapes').checked;
+    })
+    render();
+}
+
+function placeBuildingBlock(buildingBlock, connector, preview) {
     let pos = new THREE.Vector3();
     if (connector) {
         // Set position relative to previous connector
         connector.getWorldPosition(pos);
-        //pos.add(connector.getDir());
     }
 
-    let b = getActiveBuildingBlock().createMesh(preview);
+    let b = buildingBlock.createMesh(preview);
+    b.gltfObject.visible = document.getElementById('showNucleotides').checked;
+    b.shapeObject.visible = document.getElementById('showShapes').checked;
     b.position.copy(pos);
 
     if (!preview) {
-        b.children.forEach(c=>connectors.add(c));
+        b.connectorsObject.children.forEach(c=>connectors.add(c));
         placedBlocks.add(b);
     }
 
     if (connector) {
-        let connectedConnector = b.children[connectorId];
-
-        let dir = connector.getDir();
-        b.position.add(dir.clone().multiplyScalar(connectedConnector.position.length()));
+        let connectedConnector = b.connectorsObject.children[buildingBlock.getActiveConnectorId()];
 
         if (!preview) {
             // Make connection between the two connectors
-            connectedConnector.connection = connector.parent;
+            connectedConnector.connection = connector.getBlock();
             connector.connection = b;
         }
 
         // Set orientation such that the new connector of specified
         // id faces the old connector
         let q1 = new THREE.Quaternion().setFromUnitVectors(
-            connectedConnector.getDir().normalize(),
-            connector.getDir().negate().normalize()
+            connectedConnector.getDir(),
+            connector.getDir().negate()
         );
-        b.applyQuaternion(q1);
 
         // Set orientation such that the two connectors are aligned
         let angle = UTILS.getSignedAngle(
-            connector.getOrientation().normalize(),
-            connectedConnector.getOrientation().negate().normalize(),
-            connector.getDir()
+            connectedConnector.getOrientation(),
+            connector.getOrientation().negate(),
+            connectedConnector.getDir()
         )
-        let q2 = new THREE.Quaternion().setFromAxisAngle(connector.getDir(), angle);
+        let q2 = new THREE.Quaternion().setFromAxisAngle(connectedConnector.getDir(), angle);
+
+        b.applyQuaternion(q1);
         b.applyQuaternion(q2);
 
+        b.position.sub(connectedConnector.getPos());
     }
     return b;
 }
