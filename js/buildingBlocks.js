@@ -134,7 +134,7 @@ class BuildingBlock {
             }
         );
 
-        let connectorBorderPoints = [];
+        let connectorBorderPoints = [new THREE.Vector3()];
         //Set points for the base of each connector triangle
         for (const [pos, dir, orientation] of this.connectors) {
             let q1 = new THREE.Quaternion().setFromUnitVectors(
@@ -268,6 +268,12 @@ let buildingBlocks = [
     ],
     [[0, 0], [1,1]],
     [[132, 120], [154, 152]]
+    ),
+    new BuildingBlock("single_kl180", new THREE.Color(.85,.7,.7), [
+        [v3(0, 0, 2 + .5), v3(0,0,1), v3(1,0,0)]
+    ],
+    [[0, 0]],
+    [[264, 252]]
     ),
     new BuildingBlock("crossover", new THREE.Color(.23,.37,.65), [
         [v3(-.7, .9, -1.3), v3(0,0,-1), v3(0,1, 0)],

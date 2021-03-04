@@ -19,7 +19,7 @@ let placedBlocks = new Set()
 init();
 render();
 
-async function getCoordinateFile() {
+function getCoordinateFile() {
 
     UTILS.saveString(JSON.stringify(
         [...placedBlocks].map(block=>{
@@ -34,7 +34,12 @@ async function getCoordinateFile() {
         ), 'buildingBlocks.json'
     );
 
+    getOxviewSystem().then(s=>s.saveToFile("output.oxview"));
+}
+
+async function getOxviewSystem() {
     let s = new OxViewSystem();
+    // Add blocks
     for (const block of placedBlocks) {
         const data = await UTILS.getJSON(`resources/${block.name}.oxview`);
         s.addFromJSON(
@@ -44,12 +49,19 @@ async function getCoordinateFile() {
             block.uuid
         );
     }
+    // Connect blocks together
+    let done = new Set(); // If we connect a to b we don't need to connect b to a
     for (const c of connectors) {
-        if(c.connection) {
-            s.connectBuildingBlocks(c.getBlock(), c.index, c.connection.getBlock(), c.connection.index);
+        if(c.connection && !done.has(c)) {
+            s.connectBuildingBlocks(
+                c.getBlock(), c.index,
+                c.connection.getBlock(), c.connection.index
+            );
+            done.add(c);
+            done.add(c.connection);
         }
     }
-    s.saveToFile("output.oxview");
+    return s;
 }
 
 function init() {
@@ -213,6 +225,18 @@ function onDocumentMouseDown(event) {
             scene.add(placeBuildingBlock(getActiveBuildingBlock()));
         }
         render();
+        getOxviewSystem().then(sys=>{
+            let strandCountElem = document.getElementById("strandCount");
+            let dotBracketElem = document.getElementById("dotBracket");
+            if (sys.strands.length == 1) {
+                strandCountElem.innerHTML = '<span style="color:#4db34d">1 strand</span>';
+                dotBracketElem.innerHTML = sys.getDotBracket();
+                dotBracketElem.style.display = "block";
+            } else {
+                strandCountElem.innerHTML = sys.strands.length + " strands";
+                dotBracketElem.style.display = "none";
+            }
+        });
     }
 }
 

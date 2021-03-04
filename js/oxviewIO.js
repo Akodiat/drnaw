@@ -135,7 +135,8 @@ class OxViewSystem {
         let [strand3, end3] = this.findById(id3);
 
         console.assert(end5.n5 == undefined && end3.n3 == undefined,
-            "Select one nucleotide with an available 3' connection and one with an available 5'"
+            "Select one nucleotide with an available 3' connection and one with an available 5'"+
+            `\n${end5.id}.n5 == ${end5.n5}, ${end3.id}.n5 == ${end3.n3}`
         );
 
         // strand3 will be merged into strand5
@@ -144,7 +145,7 @@ class OxViewSystem {
         end5.n5 = end3.id;
         end3.n3 = end5.id;
         // Update 5' end to include the new elements
-        strand5.end5 = end5.n5;
+        strand5.end5 = strand3.end5;
 
         //check that it is not the same strand
         if (strand5 !== strand3) {
@@ -154,6 +155,50 @@ class OxViewSystem {
             }
             // Remove strand3
             this.strands = this.strands.filter(s => s !== strand3);
+        }
+    }
+
+    getDotBracket() {
+        if (this.strands.length !== 1) {
+            throw 'System has more than one strand (forgot to ligate?)';
+        } else {
+            let strand = this.strands[0];
+            let [,p5] = this.findById(strand.end5);
+            console.assert(p5.n5 === undefined, "No end?")
+            let [,p3] = this.findById(strand.end3);
+            console.assert(p3.n3 === undefined, "No end?")
+            let strandInOrder = []
+            while(true) {
+                if(strandInOrder.length > strand.monomers.length) {
+                    throw 'Circular strand?';
+                }
+                strandInOrder.push(p5);
+                if(p5 === p3) {
+                    break;
+                }
+                [,p5] = this.findById(p5.n3);
+            }
+
+            console.assert(strandInOrder.length == strand.monomers.length, "Missed some elements");
+            let s = "";
+            for (let i=0; i < strandInOrder.length; i++) {
+                if (strandInOrder[i].bp) {
+                    let j = strandInOrder.findIndex(e=>e.id == strandInOrder[i].bp);
+                    if (j<0) {
+                        throw 'Paired outside strand: ' + strandInOrder[i].id;
+                    }
+                    if (i<j) {
+                        s += '(';
+                    } else if (j<i) {
+                        s += ')';
+                    } else {
+                        throw 'Element paired with itself: ' + strandInOrder[i].id;
+                    }
+                } else {
+                    s += '.';
+                }
+            }
+            return s;
         }
     }
 }
