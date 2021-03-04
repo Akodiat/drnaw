@@ -182,7 +182,7 @@ class OxViewSystem {
             console.assert(strandInOrder.length == strand.monomers.length, "Missed some elements");
             let s = "";
             for (let i=0; i < strandInOrder.length; i++) {
-                if (strandInOrder[i].bp) {
+                if (strandInOrder[i].bp !== undefined) {
                     let j = strandInOrder.findIndex(e=>e.id == strandInOrder[i].bp);
                     if (j<0) {
                         throw 'Paired outside strand: ' + strandInOrder[i].id;
