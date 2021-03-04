@@ -3,6 +3,7 @@ import * as UTILS from './utils.js';
 import {OrbitControls} from './lib/OrbitControls.js';
 import {buildingBlocks} from './buildingBlocks.js';
 import {OxViewSystem} from './oxviewIO.js';
+import {EditHistory, RevertableEdit} from './doUndo.js'
 
 let camera, scene, renderer;
 let mouse, raycaster;
@@ -13,10 +14,10 @@ let removeMaterial;
 let orbitControls;
 
 let connectors = new Set();
-
 let placedBlocks = new Set()
-
 let oxviewSystem;
+let editHistory = new EditHistory();
+
 
 init();
 render();
@@ -120,13 +121,32 @@ function init() {
     window.addEventListener('resize', onWindowResize, false);
 
     document.addEventListener("keydown", event => {
-        if (event.key == 's' && event.ctrlKey) {
-            event.preventDefault();
-            getCoordinateFile();
+        event.preventDefault();
+        if (event.ctrlKey || event.metaKey) {
+            switch (event.key.toLowerCase()) {
+                case 's':
+                    getCoordinateFile();
+                    break;
+                case 'z':
+                    if(event.shiftKey) {
+                        editHistory.redo();
+                    } else {
+                        editHistory.undo();
+                    }
+                    break;
+                case 'y':
+                    editHistory.redo();
+                    break;
+                default:
+                    break;
+            }
         }
+
     });
 
     document.getElementById("saveButton").onclick = getCoordinateFile;
+    document.getElementById("undoButton").onclick = ()=>editHistory.undo();
+    document.getElementById("redoButton").onclick = ()=>editHistory.redo();
 
     document.getElementById("showShapes").onchange = updateVisibility;
     document.getElementById("showNucleotides").onchange = updateVisibility;
@@ -216,7 +236,6 @@ function onDocumentMouseMove(event) {
 
 function onDocumentMouseDown(event) {
     event.preventDefault();
-    let shapeChanged = false;
     if (event.button == 0) {
         if(connectors.size > 0) {
             event.preventDefault();
@@ -229,51 +248,44 @@ function onDocumentMouseDown(event) {
                 // further, replace it at another orientation
                 if (connector.connection) {
                     if (connector.connection.getBlock().connectionCount() == 1) {
-                        scene.remove(connector.connection.getBlock());
-                        placedBlocks.delete(connector.connection.getBlock());
-                        // Remove old connectors
-                        connector.connection.getBlock().connectorsObject.children.forEach(c=>connectors.delete(c));
-                        getActiveBuildingBlock().updateActiveConnectorId();
-                        connector.connection = undefined;
+                        editHistory.do(new RevertableDeletion(connector));
+                        //removeBuildingBlock(connector);
                         console.log("Replacing building block");
-                        shapeChanged = true;
+                        getActiveBuildingBlock().updateActiveConnectorId();
                     } else {
                         console.log("Cannot replace connected building block")
                     }
                 } else {
-                    let buildingBlock = placeBuildingBlock(getActiveBuildingBlock(), connector)
-                    scene.add(buildingBlock);
-                    shapeChanged = true;
+                    editHistory.do(new RevertableAddition(getActiveBuildingBlock(), connector));
                 }
             }
         } else {
             document.getElementById("initprompt").style.display = 'none';
-            scene.add(placeBuildingBlock(getActiveBuildingBlock()));
-            shapeChanged = true;
+            editHistory.do(new RevertableAddition(getActiveBuildingBlock()));
         }
-    }
-
-    if (shapeChanged) {
         render();
-        getOxviewSystem().then(sys=>{
-            let strandCountElem = document.getElementById("strandCount");
-            let dotBracketElem = document.getElementById("dotBracket");
-            let sequenceElem = document.getElementById("sequence");
-            let strandView = document.getElementById("strandView");
-            if (sys.strands.length == 1) {
-                strandCountElem.innerHTML = '<span style="color:#4db34d">1 strand</span>';
-                dotBracketElem.innerHTML = sys.getDotBracket();
-                dotBracketElem.style.fontWeight = 'normal';
-                strandView.style.display = "block";
-                sequenceElem.value = sys.getSequence();
-                oxviewSystem = sys;
-            } else {
-                strandCountElem.innerHTML = sys.strands.length + " strands";
-                strandView.style.display = "none";
-                oxviewSystem = undefined;
-            }
-        });
     }
+}
+
+function rebuildStrandview() {
+    getOxviewSystem().then(sys=>{
+        let strandCountElem = document.getElementById("strandCount");
+        let dotBracketElem = document.getElementById("dotBracket");
+        let sequenceElem = document.getElementById("sequence");
+        let strandView = document.getElementById("strandView");
+        if (sys.strands.length == 1) {
+            strandCountElem.innerHTML = '<span style="color:#4db34d">1 strand</span>';
+            dotBracketElem.innerHTML = sys.getDotBracket();
+            dotBracketElem.style.fontWeight = 'normal';
+            strandView.style.display = "block";
+            sequenceElem.value = sys.getSequence();
+            oxviewSystem = sys;
+        } else {
+            strandCountElem.innerHTML = sys.strands.length + " strands";
+            strandView.style.display = "none";
+            oxviewSystem = undefined;
+        }
+    });
 }
 
 function updateVisibility() {
@@ -281,6 +293,29 @@ function updateVisibility() {
         b.gltfObject.visible = document.getElementById('showNucleotides').checked;
         b.shapeObject.visible = document.getElementById('showShapes').checked;
     })
+    render();
+}
+
+function removeBuildingBlock(connector) {
+    let block;
+    if(connector) {
+        block = connector.connection.getBlock();
+        connector.connection = undefined;
+    } else if (placedBlocks.size == 1)  {
+        block = [...placedBlocks][0]
+    } else {
+        throw "Don't know which block to remove"
+    }
+
+    // Remove block
+    scene.remove(block);
+    placedBlocks.delete(block);
+
+    // Remove old connectors
+    block.connectorsObject.children.forEach(c=>connectors.delete(c));
+
+    rebuildStrandview();
+
     render();
 }
 
@@ -330,9 +365,35 @@ function placeBuildingBlock(buildingBlock, connector, preview) {
 
         b.position.sub(connectedConnector.getPos());
     }
-    return b;
+    if (!preview) {
+        scene.add(b);
+        rebuildStrandview();
+        render();
+    } else {
+        return b;
+    }
 }
 
 function render() {
     renderer.render(scene, camera);
+}
+
+class RevertableAddition extends RevertableEdit {
+    constructor(buildingBlock, connector) {
+        const b = buildingBlock;
+        const c = connector;
+        let undo = function () {removeBuildingBlock(c)};
+        let redo = function () {placeBuildingBlock(b, c, false)};
+        super(undo, redo);
+    }
+}
+
+class RevertableDeletion extends RevertableEdit {
+    constructor(connector) {
+        const c = connector;
+        const b = c.connection.buildingBlock;
+        let undo = function () {placeBuildingBlock(b, c, false)};
+        let redo = function () {removeBuildingBlock(c)};
+        super(undo, redo);
+    }
 }

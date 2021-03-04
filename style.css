@@ -45,9 +45,13 @@ canvas {
     padding: 5px;
 }
 
-#info {
-    position: fixed;
+#sidebar {
     z-index: 1;
+    position: fixed;
+}
+
+#info {
+    position: absolute;
 }
 
 .gui {
