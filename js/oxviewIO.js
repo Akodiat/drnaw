@@ -158,28 +158,54 @@ class OxViewSystem {
         }
     }
 
+    getSequence() {
+        if (this.strands.length !== 1) {
+            throw 'System has more than one strand (forgot to ligate?)';
+        } else {
+            let strand = this.getStrandInOrder(this.strands[0]);
+            return strand.map(e=>e.type).join('');
+        }
+    }
+
+    setSequence(sequence) {
+        if (this.strands.length !== 1) {
+            throw 'System has more than one strand (forgot to ligate?)';
+        } else {
+            let strand = this.getStrandInOrder(this.strands[0]);
+            if(sequence.length == strand.length) {
+                strand.forEach((e,i)=>{
+                    e.type = sequence[i].toUpperCase();
+                });
+                console.log("Changed sequence to "+sequence.toUpperCase());
+            }
+        }
+    }
+
+    getStrandInOrder(strand) {
+        let [,p5] = this.findById(strand.end5);
+        console.assert(p5.n5 === undefined, "No end?")
+        let [,p3] = this.findById(strand.end3);
+        console.assert(p3.n3 === undefined, "No end?")
+        let strandInOrder = []
+        while(true) {
+            if(strandInOrder.length > strand.monomers.length) {
+                throw 'Circular strand?';
+            }
+            strandInOrder.push(p5);
+            if(p5 === p3) {
+                break;
+            }
+            [,p5] = this.findById(p5.n3);
+        }
+        console.assert(strandInOrder.length == strand.monomers.length, "Missed some elements");
+        return strandInOrder;
+    }
+
     getDotBracket() {
         if (this.strands.length !== 1) {
             throw 'System has more than one strand (forgot to ligate?)';
         } else {
-            let strand = this.strands[0];
-            let [,p5] = this.findById(strand.end5);
-            console.assert(p5.n5 === undefined, "No end?")
-            let [,p3] = this.findById(strand.end3);
-            console.assert(p3.n3 === undefined, "No end?")
-            let strandInOrder = []
-            while(true) {
-                if(strandInOrder.length > strand.monomers.length) {
-                    throw 'Circular strand?';
-                }
-                strandInOrder.push(p5);
-                if(p5 === p3) {
-                    break;
-                }
-                [,p5] = this.findById(p5.n3);
-            }
-
-            console.assert(strandInOrder.length == strand.monomers.length, "Missed some elements");
+            let strandInOrder = this.getStrandInOrder(this.strands[0]);
             let s = "";
             for (let i=0; i < strandInOrder.length; i++) {
                 if (strandInOrder[i].bp !== undefined) {

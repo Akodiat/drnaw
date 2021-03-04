@@ -13,7 +13,9 @@ canvas {
     width: max-content;
 }
 
-#dotBracket {
+#strandView {
+    display: none;
+    font-family: Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
     position: fixed;
     width: 100%;
     text-align: center;
@@ -23,6 +25,19 @@ canvas {
     white-space: nowrap;
     z-index: 1;
 }
+
+
+#sequence {
+    border: none;
+    background: transparent;
+    border-bottom: 1px solid #fff;
+    outline: none;
+    text-transform:uppercase;
+    font-family: inherit;
+    text-align: inherit;
+    width: inherit;
+    font-size: inherit;
+  }
 
 #strandCount {
     right: 0px;

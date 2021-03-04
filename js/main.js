@@ -16,6 +16,8 @@ let connectors = new Set();
 
 let placedBlocks = new Set()
 
+let oxviewSystem;
+
 init();
 render();
 
@@ -34,7 +36,18 @@ function getCoordinateFile() {
         ), 'buildingBlocks.json'
     );
 
-    getOxviewSystem().then(s=>s.saveToFile("output.oxview"));
+    let oxviewFilename = "output.oxview";
+
+    if (oxviewSystem) {
+        // If the shape has not changed since we last generated an oxview system
+        // (might contain custom sequence)
+        console.log("Found existing system "+oxviewSystem.getSequence());
+        oxviewSystem.saveToFile(oxviewFilename);
+    } else {
+        console.log("Have to regenerate");
+        getOxviewSystem().then(s=>s.saveToFile(oxviewFilename));
+    }
+
 }
 
 async function getOxviewSystem() {
@@ -118,6 +131,16 @@ function init() {
     document.getElementById("showShapes").onchange = updateVisibility;
     document.getElementById("showNucleotides").onchange = updateVisibility;
 
+    document.getElementById("sequence").oninput = (e)=>{
+        if(oxviewSystem && oxviewSystem.strands.length == 1) {
+            let s = e.target.value;
+            if (oxviewSystem.strands[0].monomers.length == s.length) {
+                oxviewSystem.setSequence(s);
+                document.getElementById("dotBracket").style.fontWeight = 'bold';
+            }
+        }
+    }
+
     // orbit controls
     orbitControls = new OrbitControls(camera, canvas);
     orbitControls.damping = 0.2;
@@ -193,6 +216,7 @@ function onDocumentMouseMove(event) {
 
 function onDocumentMouseDown(event) {
     event.preventDefault();
+    let shapeChanged = false;
     if (event.button == 0) {
         if(connectors.size > 0) {
             event.preventDefault();
@@ -211,30 +235,42 @@ function onDocumentMouseDown(event) {
                         connector.connection.getBlock().connectorsObject.children.forEach(c=>connectors.delete(c));
                         getActiveBuildingBlock().updateActiveConnectorId();
                         connector.connection = undefined;
-                        console.log("Replacing building block")
+                        console.log("Replacing building block");
+                        shapeChanged = true;
                     } else {
                         console.log("Cannot replace connected building block")
                     }
                 } else {
                     let buildingBlock = placeBuildingBlock(getActiveBuildingBlock(), connector)
                     scene.add(buildingBlock);
+                    shapeChanged = true;
                 }
             }
         } else {
             document.getElementById("initprompt").style.display = 'none';
             scene.add(placeBuildingBlock(getActiveBuildingBlock()));
+            shapeChanged = true;
         }
+    }
+
+    if (shapeChanged) {
         render();
         getOxviewSystem().then(sys=>{
             let strandCountElem = document.getElementById("strandCount");
             let dotBracketElem = document.getElementById("dotBracket");
+            let sequenceElem = document.getElementById("sequence");
+            let strandView = document.getElementById("strandView");
             if (sys.strands.length == 1) {
                 strandCountElem.innerHTML = '<span style="color:#4db34d">1 strand</span>';
                 dotBracketElem.innerHTML = sys.getDotBracket();
-                dotBracketElem.style.display = "block";
+                dotBracketElem.style.fontWeight = 'normal';
+                strandView.style.display = "block";
+                sequenceElem.value = sys.getSequence();
+                oxviewSystem = sys;
             } else {
                 strandCountElem.innerHTML = sys.strands.length + " strands";
-                dotBracketElem.style.display = "none";
+                strandView.style.display = "none";
+                oxviewSystem = undefined;
             }
         });
     }
