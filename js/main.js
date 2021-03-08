@@ -121,10 +121,10 @@ function init() {
     window.addEventListener('resize', onWindowResize, false);
 
     document.addEventListener("keydown", event => {
-        event.preventDefault();
         if (event.ctrlKey || event.metaKey) {
             switch (event.key.toLowerCase()) {
                 case 's':
+                    event.preventDefault();
                     getCoordinateFile();
                     break;
                 case 'z':
