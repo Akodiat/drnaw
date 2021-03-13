@@ -352,16 +352,26 @@ function placeBuildingBlock(buildingBlock, connector, preview) {
             connector.getDir().negate()
         );
 
-        // Set orientation such that the two connectors are aligned
-        let angle = UTILS.getSignedAngle(
-            connectedConnector.getOrientation(),
-            connector.getOrientation().negate(),
-            connectedConnector.getDir()
-        )
-        let q2 = new THREE.Quaternion().setFromAxisAngle(connectedConnector.getDir(), angle);
-
         b.applyQuaternion(q1);
-        b.applyQuaternion(q2);
+
+        console.assert(connectedConnector.getDir().distanceTo(connector.getDir().negate()) < 0.01, "Not coaxial!");
+
+        // This is sooo ugly, why doesn't it work on the first try?
+        while(true) {
+            // Set orientation such that the two connectors are aligned
+            let angle = UTILS.getSignedAngle(
+                connectedConnector.getOrientation(),
+                connector.getOrientation().negate(),
+                connector.getDir().negate()
+            );
+
+            if (Math.abs(angle) < 0.01) {
+                break;
+            }
+
+            let q2 = new THREE.Quaternion().setFromAxisAngle(connector.getDir().negate(), angle);
+            b.applyQuaternion(q2);
+        }
 
         b.position.sub(connectedConnector.getPos());
     }
