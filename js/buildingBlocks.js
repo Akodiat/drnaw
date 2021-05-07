@@ -18,13 +18,19 @@ class Connector extends THREE.Mesh {
                 new THREE.Vector3(0,0,1), dir
             );
 
+            this.applyQuaternion(q1);
+
+            //console.assert(new THREE.Vector3(0,0,1).distanceTo(this.getDir()) < 0.01, "Incorrect visual connector direction");
+
             let angle = UTILS.getSignedAngle(
                 new THREE.Vector3(0,1,0), orientation, dir
             );
+            console.log(buildingBlock.name+" "+angle*180/Math.PI)
             let q2 = new THREE.Quaternion().setFromAxisAngle(dir, angle);
 
-            this.applyQuaternion(q1);
             this.applyQuaternion(q2);
+
+            //console.assert(new THREE.Vector3(0,1,0).distanceTo(this.getOrientation()) < 0.01, "Incorrect visual connector orientation");
 
             this.position.copy(pos);
             this.name = "connector";
@@ -121,7 +127,7 @@ class BuildingBlock {
             opacity: 0.5,
             transparent: true
         });
-        let connectorSide = 2;
+        let connectorSide = 0.75;
 
         // Load glTF nucleotide object
         const loader = new GLTFLoader();
@@ -241,14 +247,18 @@ class BuildingBlock {
 }
 
 // Shorthand for Vector3
-let v3 = (x,y,z)=>{return new THREE.Vector3(x,y,z)}
+const v3 = (x,y,z)=>{return new THREE.Vector3(x,y,z)};
 
-let buildingBlocks = [
+const bbdist = 0.34223473072052; //0.5719336091629912;
+const angle = 2*Math.PI/10.5;
+
+const buildingBlocks = [
+    /*
     new BuildingBlock("11bp_helix", new THREE.Color(.87,.87,.88), [
         [
             v3(0, 0, -1.60850 - .5), // Position of patch (take mean of the nucleotides in the pair)
             v3(0,0,-1), // Direction of patch (probably similar to prev), also A3 of 5' end nucleotide
-            v3(0, 1, 0) // Orientation, (the 3' end nucleotide minus the position)
+            v3(0, 1, 0) // Orientation, (the 3' end nucleotide minus the 5' end minus direction*pos)
         ],
         [v3(0, 0, 1.64978 + .5), v3(0,0,1), v3(0,-1,0)]
     ], [
@@ -262,6 +272,14 @@ let buildingBlocks = [
             12 // 3' end id on patch 1
         ]]
     ),
+    */
+    new BuildingBlock("1bp", new THREE.Color(.87,.87,.88), [
+        [v3(0, 0, -bbdist/2), v3(0,0,-1), v3(0,1,0)],
+        [v3(0, 0, bbdist/2), v3(0,0,1), v3(0,-1,0).applyAxisAngle(v3(0,0,1), angle)]
+    ],
+    [[0, 1], [1, 0]],
+    [[0, 1], [1, 0]]
+    ),
     new BuildingBlock("kl180", new THREE.Color(.85,.7,.7), [
         [v3(0, 0, - 2 - .5), v3(0,0,-1), v3(0, 1, 0)],
         [v3(0, 0, 2 + .5), v3(0,0,1), v3(1,0,0)]
@@ -270,7 +288,7 @@ let buildingBlocks = [
     [[132, 120], [154, 152]]
     ),
     new BuildingBlock("single_kl180", new THREE.Color(.85,.7,.7), [
-        [v3(0, 0, 2 + .5), v3(0,0,1), v3(1,0,0)]
+        [v3(0, 0, 1), v3(0,0,1), v3(1,0,0)]
     ],
     [[0, 0]],
     [[264, 252]]
@@ -278,8 +296,8 @@ let buildingBlocks = [
     new BuildingBlock("crossover", new THREE.Color(.23,.37,.65), [
         [v3(-.7, .9, -1.3), v3(0,0,-1), v3(0,1, 0)],
         [v3(-.7, .9, .5), v3(0,0,1), v3(0,-1,0)],
-        [v3(.7, -.9, -.5), v3(0,0,-1), v3(-1,1,0).normalize()],
-        [v3(.7, -.9, 1.3), v3(0,0,1), v3(1,-1,0).normalize()]
+        [v3(.7, -.9, -.5), v3(0,0,-1), v3(0,1, 0)],
+        [v3(.7, -.9, 1.3), v3(0,0,1), v3(0,-1,0)]
     ], [[0, 1], [1, 3], [3, 2], [2, 0]],
     [[70, 108], [109, 143], [173, 69], [144, 172]]
     )
