@@ -279,7 +279,7 @@ const buildingBlocks = [
     [[0, 1], [1, 0]],
     [[0, 1], [1, 0]]
     ),
-    new BuildingBlock("1bp_end5", new THREE.Color(.3,.3,.3), [
+    new BuildingBlock("1bp_end5", new THREE.Color(.45,.45,.45), [
         [v3(0, 0, -bbdist/2), v3(0,0,-1), v3(0,1,0)],
         [v3(0, 0, bbdist/2), v3(0,0,1), v3(0,-1,0).applyAxisAngle(v3(0,0,1), angle)]
     ],
