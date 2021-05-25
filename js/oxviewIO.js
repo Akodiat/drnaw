@@ -120,14 +120,20 @@ class OxViewSystem {
         let [n5b1, n3b1] = b1.buildingBlock.patchNucleotides[b1PatchId];
         let [n5b2, n3b2] = b2.buildingBlock.patchNucleotides[b2PatchId];
 
-        // Change to actual updated IDs
-        n5b1 = this.idMaps.get(b1.uuid).get(n5b1);
-        n3b1 = this.idMaps.get(b1.uuid).get(n3b1);
-        n5b2 = this.idMaps.get(b2.uuid).get(n5b2);
-        n3b2 = this.idMaps.get(b2.uuid).get(n3b2);
-
-        this.ligate(n5b1, n3b2);
-        this.ligate(n5b2, n3b1);
+        // Check if ends should be ligated (i.e. not an endpoint)
+        if (n5b1 !== undefined && n3b2 !== undefined) {
+            // Change to actual updated IDs
+            n5b1 = this.idMaps.get(b1.uuid).get(n5b1);
+            n3b2 = this.idMaps.get(b2.uuid).get(n3b2);
+            // Ligate
+            this.ligate(n5b1, n3b2);
+        }
+        // Do the same for second patch
+        if (n5b2 !== undefined && n3b1 !== undefined) {
+            n5b2 = this.idMaps.get(b2.uuid).get(n5b2);
+            n3b1 = this.idMaps.get(b1.uuid).get(n3b1);
+            this.ligate(n5b2, n3b1);
+        }
     }
 
     ligate(id5, id3) {
