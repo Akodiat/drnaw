@@ -45,4 +45,8 @@ function makeLine(points, material) {
     return new THREE.Line(geometry, material);
 }
 
-export {getSignedAngle, saveString, getJSON, setMaterialRecursively, makeLine}
+function randomElement(items) {
+    return items[Math.floor(Math.random()*items.length)];
+}
+
+export {getSignedAngle, saveString, getJSON, setMaterialRecursively, makeLine, randomElement}
