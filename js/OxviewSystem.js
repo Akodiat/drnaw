@@ -39,6 +39,8 @@ class OxViewSystem {
         orientation = new THREE.Vector3(0,-1,0),
         duplex = false, type = 'DNA', cluster = undefined, uuid
     ) {
+        // Set up constants for DNA/RNA. Adapted from oxView code, which in turn
+        // is adapted from python code in the oxDNA UTILS directory
         let rot, rise, fudge;
         let r1, r2, inclination;
         if (type == 'DNA') {
@@ -55,6 +57,8 @@ class OxViewSystem {
             throw `Unknown type: "${type}". Use "DNA" or "RNA".`
         }
 
+        // Make one cluster per drawn strand (for a duplex the cluster is set
+        // to be the same for both strands)
         if (cluster === undefined) {
             cluster = this.clusterCounter++; // Get new cluster
         } else {
@@ -65,6 +69,8 @@ class OxViewSystem {
         direction.normalize();
         orientation.normalize();
 
+        // You may either supply a string sequence, or a just the number of bases.
+        // If a number, generate a random sequence.
         if (typeof sequence !== 'string') {
             if (typeof(sequence) === 'number') {
                 let actualSeq = "";
@@ -79,12 +85,14 @@ class OxViewSystem {
 
         const idMap = new Map();
 
+        // Create the strand
         let newStrand = {
             id: this.strandIdCounter++,
             monomers: [],
-            "class": "NucleicAcidStrand"
+            class: "NucleicAcidStrand"
         };
 
+        // Create the monomers
         sequence.split("").map((base, i)=>{
             let a1, a3, p;
 
@@ -107,8 +115,12 @@ class OxViewSystem {
 
                 p = startPos.clone().add(a1.clone().multiplyScalar(fudge)).add(localR2);
             }
+
+            // We create new monomers, so they get new IDs. Thus, the idMap just maps numbers to themselves
             let id = this.monomerIdCounter++;
             idMap.set(id, id);
+
+            // Add monomer to strand
             newStrand.monomers.push({
                 id: id,
                 p: p.toArray(),
@@ -129,6 +141,7 @@ class OxViewSystem {
 
         const count = newStrand.monomers.length;
 
+        // Connect monomers with their strand neighbours.
         for (let i=0; i<count; i++) {
             if (i-1 >= 0) {
                 newStrand.monomers[i].n5 = newStrand.monomers[i-1].id;
@@ -138,23 +151,38 @@ class OxViewSystem {
             }
         }
 
+        // Specify strand endpoints (it is a doubly linked list, even if we
+        // also have an array with the data)
         newStrand.end5 = newStrand.monomers[0].id;
         newStrand.end3 = newStrand.monomers.slice(-1)[0].id;
 
+        // Add strand to system
         this.strands.push(newStrand);
 
         if (duplex) {
+            // Find starting point for complementary strand
             const last = newStrand.monomers.slice(-1)[0];
             const complSeq = sequence.split("").reverse().map(c=>getComplementaryType(c, type==='RNA')).join("");
             const lastA1 = new THREE.Vector3().fromArray(last.a1);
             const p = startPos.clone().add(direction.clone().multiplyScalar(rise * (count-1)));
-            const complStrand = this.draw(complSeq, p, direction.clone().negate(), lastA1.clone().negate(), false, type, cluster);
+
+            // Call this function again, to recursively draw the complementary strand (but only one recursion since duplex is now false).
+            const complStrand = this.draw(complSeq, p, direction.clone().negate(), lastA1.clone().negate(), false, type, cluster, uuid);
 
             // Specify basepairs
             for (let i=0; i<count; i++) {
                 newStrand.monomers[i].bp = complStrand.monomers[count-i-1].id;
                 complStrand.monomers[count-i-1].bp = newStrand.monomers[i].id;
             }
+        }
+
+        // Save id map to use in ligation
+        // Really quite pointless, but needed to be compatible with
+        // parts added from JSON. Both strands in a duplex share the same map
+        if (this.idMaps.has(uuid)) {
+            this.idMaps.set(uuid, new Map([...this.idMaps.get(uuid), ...idMap]));
+        } else {
+            this.idMaps.set(uuid, idMap);
         }
 
         return newStrand;
