@@ -1,6 +1,5 @@
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 import * as UTILS from './utils.js';
-import {buildingBlocks} from './buildingBlocks.js';
 import {View} from './View.js';
 import {Model} from './Model.js';
 import {RevertableEdit} from './doUndo.js';
@@ -43,7 +42,7 @@ function init() {
 
     });
 
-    document.getElementById(saveButtonId).onclick = model.getCoordinateFile;
+    document.getElementById(saveButtonId).onclick = () => model.getCoordinateFile();
     document.getElementById(undoButtonId).onclick = () => model.editHistory.undo();
     document.getElementById(redoButtonId).onclick = () => model.editHistory.redo();
 

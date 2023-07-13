@@ -1,5 +1,5 @@
 
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 import * as UTILS from './utils.js';
 import {ConvexGeometry} from './lib/geometries/ConvexGeometry.js';
 import {PrismGeometry} from './PrismGeometry.js';
@@ -72,7 +72,7 @@ class BuildingBlock {
         try {
             this.geometry = new ConvexGeometry(connectorBorderPoints);
         } catch (error) {
-            this.geometry = new THREE.BoxBufferGeometry(.75, .75, .75);
+            this.geometry = new THREE.BoxGeometry(.75, .75, .75);
         }
         this.shapeObject = new THREE.Mesh(this.geometry, this.material);
 

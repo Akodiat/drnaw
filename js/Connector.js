@@ -1,4 +1,4 @@
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 import * as UTILS from './utils.js';
 
 class Connector extends THREE.Mesh {

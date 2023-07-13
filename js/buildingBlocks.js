@@ -1,4 +1,4 @@
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 import {BuildingBlock} from './BuildingBlock.js';
 
 // Shorthand for Vector3

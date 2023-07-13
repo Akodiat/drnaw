@@ -1,4 +1,4 @@
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 import {OrbitControls} from './lib/OrbitControls.js';
 import {buildingBlocks} from './buildingBlocks.js';
 
@@ -52,7 +52,7 @@ class View {
         this.renderer.setClearColor(0x000000, 0);
         document.body.appendChild(this.renderer.domElement);
 
-        window.addEventListener('resize', this.onWindowResize, false);
+        window.addEventListener('resize', ()=>this.onWindowResize(), false);
         document.body.appendChild(this.renderer.domElement);
 
         this.canvas.addEventListener('pointermove', onDocumentMouseMove, false);

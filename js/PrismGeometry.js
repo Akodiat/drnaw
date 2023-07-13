@@ -1,5 +1,5 @@
 // From https://stackoverflow.com/a/27194985
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 
 class PrismGeometry extends THREE.ExtrudeGeometry {
     constructor(vertices, height) {

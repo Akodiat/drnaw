@@ -1,4 +1,4 @@
-import * as THREE from './lib/three.module.js';
+import * as THREE from './lib/three.module.min.js';
 
 let getSignedAngle = function(v1, v2, axis) {
     v1.normalize();
