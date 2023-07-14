@@ -1,4 +1,6 @@
-import * as THREE from './lib/three.module.min.js';
+import {Line2} from './lib/lines/Line2.js';
+import {LineGeometry} from './lib/lines/LineGeometry.js';
+import {LineMaterial} from './lib/lines/LineMaterial.js';
 
 let getSignedAngle = function(v1, v2, axis) {
     v1.normalize();
@@ -40,9 +42,21 @@ async function getJSON(path) {
         });
 }
 
-function makeLine(points, material) {
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    return new THREE.Line(geometry, material);
+function makeLine(points, color, width) {
+    const geometry = new LineGeometry();
+    geometry.setPositions(points.map(p=>p.toArray()).flat());
+    const material = new LineMaterial({
+        color: color,
+        linewidth: 0.08,
+        worldUnits: true,
+        vertexColors: false,
+        dashed: false,
+        alphaToCoverage: false,
+    });
+    const line = new Line2(geometry, material);
+    line.computeLineDistances();
+    line.scale.set(1, 1, 1);
+    return line;
 }
 
 function randomElement(items) {

@@ -45,8 +45,7 @@ class Model {
             connector.getWorldPosition(pos);
         }
 
-        let b = buildingBlock.createMesh(preview);
-        b.gltfObject.visible = document.getElementById('showNucleotides').checked;
+        let b = buildingBlock.clone(preview);
         b.shapeObject.visible = document.getElementById('showShapes').checked;
         b.position.copy(pos);
 
@@ -132,6 +131,7 @@ class Model {
 
     async getOxviewSystem() {
         let s = new OxViewSystem();
+
         // Add blocks
         for (const block of this.placedBlocks) {
             const data = await UTILS.getJSON(`resources/${block.name}.oxview`);

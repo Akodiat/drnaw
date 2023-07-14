@@ -273,8 +273,8 @@ class OxViewSystem {
 
     connectBuildingBlocks(b1, b1PatchId, b2, b2PatchId) {
         // Find monomer ID's for patch pasepairs
-        let [n5b1, n3b1] = b1.buildingBlock.patchNucleotides[b1PatchId];
-        let [n5b2, n3b2] = b2.buildingBlock.patchNucleotides[b2PatchId];
+        let [n5b1, n3b1] = b1.patchNucleotides[b1PatchId];
+        let [n5b2, n3b2] = b2.patchNucleotides[b2PatchId];
 
         // Check if ends should be ligated (i.e. not an endpoint)
         if (n5b1 !== undefined && n3b2 !== undefined) {

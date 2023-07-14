@@ -2,13 +2,31 @@
 import * as THREE from './lib/three.module.min.js';
 import * as UTILS from './utils.js';
 import {ConvexGeometry} from './lib/geometries/ConvexGeometry.js';
+import {Line2} from './lib/lines/Line2.js';
+import {LineMaterial} from './lib/lines/LineMaterial.js'
+import {LineGeometry} from './lib/lines/LineGeometry.js'
 import {PrismGeometry} from './PrismGeometry.js';
 import {Connector} from './Connector.js';
-import {GLTFLoader} from './lib/loaders/GLTFLoader.js';
 
-class BuildingBlock {
+class BuildingBlock extends THREE.Group {
     constructor(name, color, connectors, strandConnectivity, patchNucleotides) {
+        super();
+
         this.name = name;
+
+        this.clone = (preview) => {
+            const cloned = new BuildingBlock(name, color, connectors, strandConnectivity, patchNucleotides);
+            if(preview) {
+                const previewMaterial = new THREE.MeshLambertMaterial({
+                    color: color,
+                    opacity: 0.5,
+                    transparent: true
+                });
+                cloned.shapeObject.material = previewMaterial
+                this.connectorsObject.children.forEach(c=>c.material = previewMaterial);
+            }
+            return cloned;
+        };
 
         console.assert(patchNucleotides.length == connectors.length,
             `${name}: patchNucleotides needs to be the same length as connectors`
@@ -28,23 +46,7 @@ class BuildingBlock {
         this.connectorMaterial = new THREE.MeshLambertMaterial({
             color: color.clone().addScalar(-0.1)
         });
-        this.previewMaterial = new THREE.MeshLambertMaterial({
-            color: color,
-            opacity: 0.5,
-            transparent: true
-        });
         let connectorSide = 0.75;
-
-        // Load glTF nucleotide object
-        const loader = new GLTFLoader();
-        loader.load(`resources/${name}.gltf`, (gltf)=>{
-                this.gltfObject = gltf.scene;
-            },
-            // called while loading is progressing
-            function (xhr) {
-                console.log((xhr.loaded / xhr.total * 100 ) + '% loaded');
-            }
-        );
 
         let connectorBorderPoints = [new THREE.Vector3()];
         //Set points for the base of each connector triangle
@@ -71,16 +73,20 @@ class BuildingBlock {
         }
         try {
             this.geometry = new ConvexGeometry(connectorBorderPoints);
+            this.geometry.scale(.9, .9, .9);
         } catch (error) {
             this.geometry = new THREE.BoxGeometry(.75, .75, .75);
         }
         this.shapeObject = new THREE.Mesh(this.geometry, this.material);
+
 
         this.connectionGeometry = new PrismGeometry([
             new THREE.Vector2(0, 0),
             new THREE.Vector2(0, connectorSide),
             new THREE.Vector2(connectorSide/4, connectorSide)
         ], connectorSide/2);
+
+        this.connectionGeometry.scale(0.9, 0.9, 0.9);
 
         this.connectorsObject = new THREE.Group();
         let connectorIndex = 0;
@@ -106,7 +112,7 @@ class BuildingBlock {
                 p5.clone().sub(dir5.clone().setLength(dist)),
                 p3.clone().sub(dir3.clone().setLength(dist)),
                 p3
-            ], new THREE.LineBasicMaterial({color: this.material.color, linewidth: 10}))
+            ], this.material.color, 10);
 
             const arrowHelper = new THREE.ArrowHelper(dir5.clone().negate(), p5, dist, 0xF0CE1E, dist/2, dist/2);
 
@@ -115,6 +121,14 @@ class BuildingBlock {
         }
 
         this.connectorId = 0;
+
+        this.add(this.shapeObject);
+        this.add(this.lineObject);
+        this.add(this.connectorsObject);
+
+        this.connectionCount = () => this.connectorsObject.children.filter(c => c.connection).length;
+
+        return this;
     }
 
     updateActiveConnectorId() {
@@ -124,32 +138,13 @@ class BuildingBlock {
     getActiveConnectorId() {
         return this.connectorId % this.connectors.length;
     }
+}
 
-    createMesh(preview) {
-        let block = new THREE.Group();
-        block.name = this.name;
-        block.buildingBlock = this;
 
-        block.shapeObject = this.shapeObject.clone();
-        block.add(block.shapeObject);
-
-        block.gltfObject = this.gltfObject.clone();
-        block.add(block.gltfObject);
-
-        block.lineObject = this.lineObject.clone();
-        block.add(block.lineObject);
-
-        block.connectorsObject = this.connectorsObject.clone();
-        block.add(block.connectorsObject);
-        block.connectionCount = () => block.connectorsObject.children.filter(c => c.connection).length;
-
-        if(preview) {
-            block.shapeObject.material = this.previewMaterial
-            block.connectorsObject.children.forEach(c=>c.material = this.previewMaterial);
-        }
-
-        return block;
-    };
+class HelixBuildingBlock extends BuildingBlock {
+    constructor(name, color, connectors, strandConnectivity, patchNucleotides) {
+        super(name, color, connectors, strandConnectivity, patchNucleotides);
+    }
 }
 
 export {BuildingBlock}

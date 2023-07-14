@@ -48,7 +48,6 @@ function init() {
 
     const updateVisibility = () => {
         model.placedBlocks.forEach(b=>{
-            b.gltfObject.visible = document.getElementById('showNucleotides').checked;
             b.shapeObject.visible = document.getElementById('showShapes').checked;
         })
         view.render();
@@ -83,7 +82,7 @@ function onDocumentMouseMove(event) {
             // If we have already connected a building block, but it is not connected
             // further, replace it at another orientation
             if (connector.connection && (connector.connection.getBlock().connectionCount() == 1)) {
-                let b = connector.connection.getBlock().buildingBlock;
+                let b = connector.connection.getBlock();
                 model.rollOverMesh = model.placeBuildingBlock(b, connector, true);
                 model.rollOverMesh.scale.multiplyScalar(1.01);
                 UTILS.setMaterialRecursively(model.rollOverMesh, view.removeMaterial);
@@ -120,7 +119,7 @@ function onDocumentMouseDown(event) {
                 // further, replace it at another orientation
                 if (connector.connection) {
                     if (connector.connection.getBlock().connectionCount() == 1) {
-                        model.editHistory.do(new RevertableDeletion(connector));
+                        model.editHistory.do(new RevertableDeletion(connector, model));
                         //removeBuildingBlock(connector);
                         console.log("Replacing building block");
                         view.getActiveBuildingBlock().updateActiveConnectorId();
@@ -143,8 +142,8 @@ class RevertableAddition extends RevertableEdit {
     constructor(buildingBlock, connector, model) {
         const b = buildingBlock;
         const c = connector;
-        let undo = function () {model.removeBuildingBlock(c)};
-        let redo = function () {model.placeBuildingBlock(b, c, false)};
+        let undo = () => {model.removeBuildingBlock(c)};
+        let redo = () => {model.placeBuildingBlock(b, c, false)};
         super(undo, redo);
     }
 }
@@ -153,8 +152,8 @@ class RevertableDeletion extends RevertableEdit {
     constructor(connector, model) {
         const c = connector;
         const b = c.connection.buildingBlock;
-        let undo = function () {model.placeBuildingBlock(b, c, false)};
-        let redo = function () {model.removeBuildingBlock(c)};
+        let undo = () => {model.placeBuildingBlock(b, c, false)};
+        let redo = () => {model.removeBuildingBlock(c)};
         super(undo, redo);
     }
 }

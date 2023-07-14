@@ -1,6 +1,6 @@
 import * as THREE from './lib/three.module.min.js';
 import {OrbitControls} from './lib/OrbitControls.js';
-import {buildingBlocks} from './buildingBlocks.js';
+import {buildingBlockTemplates} from './buildingBlocks.js';
 
 class View {
 
@@ -65,7 +65,7 @@ class View {
         this.orbitControls.addEventListener('change', ()=>this.render());
 
         let palette = document.getElementById(paletteId);
-        buildingBlocks.forEach((b,i)=>{
+        buildingBlockTemplates.forEach((b,i)=>{
             let l = document.createElement('label');
             //l.for = e.id;
             l.style.background = '#'+b.color.getHexString();
@@ -114,7 +114,7 @@ class View {
 
     getActiveBuildingBlock() {
         const name = document.querySelector('input[name="buildingBlock"]:checked').value;
-        return buildingBlocks.find(b => b.name == name);
+        return buildingBlockTemplates.find(b => b.name == name);
     }
 }
 
