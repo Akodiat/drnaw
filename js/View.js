@@ -1,4 +1,5 @@
 import * as THREE from './lib/three.module.min.js';
+import * as UTILS from './utils.js';
 import {OrbitControls} from './lib/OrbitControls.js';
 import {buildingBlockTemplates} from './buildingBlocks.js';
 import {HelixBuildingBlock} from './BuildingBlock.js';
@@ -12,6 +13,7 @@ class View {
     raycaster;
     orbitControls;
     removeMaterial;
+    helixLineObject;
 
     constructor(
         onDocumentMouseMove,
@@ -81,6 +83,9 @@ class View {
 
             palette.append(l);
         });
+
+        this.helixLineObject = new THREE.Group();
+        this.scene.add(this.helixLineObject);
     }
 
     onWindowResize() {
@@ -110,6 +115,13 @@ class View {
             strandView.style.display = "none";
             model.oxviewSystem = undefined;
         }
+
+        this.helixLineObject.clear();
+        sys.strands.forEach(strand=>{
+            const positions = strand.monomers.map(e=>new THREE.Vector3().fromArray(e.p));
+            let line = UTILS.makeLine(positions, new THREE.Color(0.3, 0.3, 0.4), 5);
+            this.helixLineObject.add(line);
+        });
     }
 
     getActiveBuildingBlock() {

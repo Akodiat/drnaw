@@ -396,13 +396,43 @@ class OxViewSystem {
 
         //check that it is not the same strand
         if (strand5 !== strand3) {
+            // Rebuild monomer array from 5' to 3' end
+            let [_, newEnd5] = this.findById(strand5.end5);
+            strand5.monomers = this.seekNeighbours([newEnd5], 'n3');
             // Move all monomers from strand 3 to strand 5
-            for(const e of strand3.monomers) {
-                strand5.monomers.push(e);
-            }
+            //for(const e of strand3.monomers) {
+            //    strand5.monomers.push(e);
+            //}
             // Remove strand3
             this.strands = this.strands.filter(s => s !== strand3);
         }
+    }
+
+    // Build monomer array through linked list
+    seekNeighbours(monomers, dir='n3') {
+        let end;
+        if (dir==='n3') {
+            end = monomers.slice(-1)[0];
+        } else if (dir==='n5') {
+            end = monomers[0];
+        } else {
+            throw "Unknown direction: "+dir;
+        }
+
+        if (end[dir] === undefined) {
+            return monomers
+        } else {
+            let n = this.getNeighbour(end, dir);
+            return this.seekNeighbours(
+                dir==='n3' ? [...monomers, n] : [n, ...monomers],
+                dir
+            )
+        }
+    }
+
+    getNeighbour(monomer, dir='n3') {
+        let [strand5, end5] = this.findById(monomer[dir]);
+        return end5;
     }
 
     getSequence() {

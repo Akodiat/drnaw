@@ -157,7 +157,7 @@ class BuildingBlock extends THREE.Group {
             new THREE.Vector3, new THREE.Quaternion(),
             this.uuid
         );
-        this.updateHelixObject(s);
+        //this.updateHelixObject(s);
         return s;
     }
 }
@@ -253,7 +253,7 @@ class HelixBuildingBlock extends BuildingBlock {
                 ).toArray()
         ));
 
-        this.updateHelixObject(s);
+        //this.updateHelixObject(s);
         return s;
     }
 }
