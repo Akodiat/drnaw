@@ -4,7 +4,7 @@ import {BuildingBlock} from './BuildingBlock.js';
 // Shorthand for Vector3
 const v3 = (x,y,z)=>{return new THREE.Vector3(x,y,z)};
 
-const bbdist = 0.34223473072052;;
+const bbdist = 0.34223473072052;
 const angle = 2*Math.PI/11;
 
 const buildingBlockTemplates = [

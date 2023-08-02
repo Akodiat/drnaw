@@ -134,12 +134,11 @@ class Model {
 
         // Add blocks
         for (const block of this.placedBlocks) {
-            const data = await UTILS.getJSON(`resources/${block.name}.oxview`);
-            s.addFromJSON(
-                data,
+            const blockSys = await block.getOxview();
+            s.join(
+                blockSys,
                 block.position,
-                block.getWorldQuaternion(new THREE.Quaternion()),
-                block.uuid
+                block.getWorldQuaternion(new THREE.Quaternion())
             );
         }
         // Connect blocks together

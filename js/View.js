@@ -1,6 +1,7 @@
 import * as THREE from './lib/three.module.min.js';
 import {OrbitControls} from './lib/OrbitControls.js';
 import {buildingBlockTemplates} from './buildingBlocks.js';
+import {HelixBuildingBlock} from './BuildingBlock.js';
 
 class View {
 
@@ -114,6 +115,10 @@ class View {
 
     getActiveBuildingBlock() {
         const name = document.querySelector('input[name="buildingBlock"]:checked').value;
+        if (name == 'helix') {
+            const length = parseInt(document.getElementById("helixLength").value);
+            return new HelixBuildingBlock(length);
+        }
         return buildingBlockTemplates.find(b => b.name == name);
     }
 }

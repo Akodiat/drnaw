@@ -54,7 +54,6 @@ function init() {
     }
 
     document.getElementById(showShapesToggleId).onchange = updateVisibility;
-    document.getElementById(showNucleotidesToggleId).onchange = updateVisibility;
 
     document.getElementById(sequenceInputId).oninput = (e)=>{
         if(model.oxviewSystem && model.oxviewSystem.strands.length == 1) {

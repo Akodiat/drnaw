@@ -34,7 +34,7 @@ class OxViewSystem {
 
     draw(
         sequence,
-        startPos = new THREE.Vector3(0,0,1),
+        startPos = new THREE.Vector3(0,0,0),
         direction = new THREE.Vector3(0,0,-1),
         orientation = new THREE.Vector3(0,-1,0),
         duplex = false, type = 'DNA', cluster = undefined, uuid
@@ -73,11 +73,11 @@ class OxViewSystem {
         // If a number, generate a random sequence.
         if (typeof sequence !== 'string') {
             if (typeof(sequence) === 'number') {
-                let actualSeq = "";
-                for (let i=0; i<sequence; i++) {
-                    actualSeq += UTILS.randomElement(["A", type==='DNA' ? "T": "U", "C", "G"]);
-                }
-                sequence = actualSeq;
+                sequence = Array.from(
+                    {length: this.length},
+                    _ => UTILS.randomElement([
+                        "A", type==='DNA' ? "T": "U", "C", "G"
+                ])).join('');
             } else {
                 console.log("Please provide either a sequence string or a sequence length")
             }
@@ -116,7 +116,8 @@ class OxViewSystem {
                 p = startPos.clone().add(a1.clone().multiplyScalar(fudge)).add(localR2);
             }
 
-            // We create new monomers, so they get new IDs. Thus, the idMap just maps numbers to themselves
+            // We create new monomers, so they get new IDs. But we also fudge
+            // the local id as if this helix was alone in the system.
             let id = this.monomerIdCounter++;
             idMap.set(id, id);
 
@@ -177,10 +178,11 @@ class OxViewSystem {
         }
 
         // Save id map to use in ligation
-        // Really quite pointless, but needed to be compatible with
-        // parts added from JSON. Both strands in a duplex share the same map
         if (this.idMaps.has(uuid)) {
-            this.idMaps.set(uuid, new Map([...this.idMaps.get(uuid), ...idMap]));
+            // Both strands in helix should have the same map
+            idMap.forEach((key, value)=>{
+                this.idMaps.get(uuid).set(key, value);
+            });
         } else {
             this.idMaps.set(uuid, idMap);
         }
@@ -261,14 +263,97 @@ class OxViewSystem {
         this.idMaps.set(uuid, idMap);
     }
 
+    join(other, position, orientation) {
+        // Go through and update strand data to
+        // fit into this oxview system
+        other.strands.forEach(strand=>{
+            // Strand id is offset by number of strands in this system
+            strand.id += this.strandIdCounter;
+            strand.monomers.forEach(monomer=>{
+                // Position and orientate correctly
+                let p = new THREE.Vector3().fromArray(monomer.p);
+                let a1 = new THREE.Vector3().fromArray(monomer.a1);
+                let a3 = new THREE.Vector3().fromArray(monomer.a3);
+
+                p.applyQuaternion(orientation);
+                a1.applyQuaternion(orientation);
+                a3.applyQuaternion(orientation);
+
+                p.add(position);
+
+                monomer.p = p.toArray();
+                monomer.a1 = a1.toArray();
+                monomer.a3 = a3.toArray();
+                monomer.cluster += this.clusterCounter;
+
+                // Monomer id is offset by number of monomers in this system
+                const newId = this.monomerIdCounter + monomer.id;
+
+                // Update the id maps with the new ids
+                let found = false;
+                for (const [uuid, m] of other.idMaps) {
+                    if (found) {
+                        break;
+                    }
+                    for (const [localId, oldId] of m) {
+                        if (oldId === monomer.id) {
+                            // Add other idmaps into this system
+                            if (!this.idMaps.has(uuid)) {
+                                this.idMaps.set(uuid, new Map());
+                            }
+                            this.idMaps.get(uuid).set(localId, newId);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                //idMap.set(monomer.id, newId);
+                monomer.id = newId;
+
+                if (monomer.n3 !== undefined) {
+                    monomer.n3 += this.monomerIdCounter;
+                }
+                if (monomer.n5 !== undefined) {
+                    monomer.n5 += this.monomerIdCounter;
+                }
+                if (monomer.bp !== undefined) {
+                    monomer.bp += this.monomerIdCounter;
+                }
+
+                // Resize box
+                this.box = Math.max(this.box,
+                    Math.abs(4*p.x),
+                    Math.abs(4*p.y),
+                    Math.abs(4*p.z)
+                );
+            });
+
+            if(strand.end3 >= 0) {
+                strand.end3 += this.monomerIdCounter;
+            }
+            if(strand.end5 >= 0) {
+                strand.end5 += this.monomerIdCounter;
+            }
+        });
+
+        other.strands.forEach(strand=>{
+            this.strands.push(strand);
+        });
+
+        this.strandIdCounter += other.strandIdCounter;
+        this.monomerIdCounter += other.monomerIdCounter;
+        this.clusterCounter += other.clusterCounter;
+    }
+
     findById(id) {
         for (const s of this.strands) {
             for (const e of s.monomers) {
-                if (e.id == id) {
+                if (e.id === id) {
                     return [s, e];
                 }
             }
         }
+        console.error(`Unable to find any monomer with id===${id}`)
     }
 
     connectBuildingBlocks(b1, b1PatchId, b2, b2PatchId) {
@@ -396,7 +481,7 @@ class OxViewSystem {
 function getComplementaryType(type, RNA=false) {
     console.assert(RNA && type !== 'T' || !RNA && type !== 'U', `Type cannot be ${type} in ${RNA?'RNA':'DNA'}!`);
     let tu = RNA ? 'U':'T';
-    let map = {'A': tu, 'G': 'C', 'C': 'G'};
+    let map = {'N': 'N', 'A': tu, 'G': 'C', 'C': 'G'};
     map[tu] = 'A';
     let complType = map[type];
     console.assert(complType !== undefined, `Type ${type} has no defined complementary type! (for ${RNA?'RNA':'DNA'})`);
