@@ -8,32 +8,6 @@ const bbdist = 0.34223473072052;
 const angle = 2*Math.PI/11;
 
 const buildingBlockTemplates = [
-
-    new BuildingBlock("11bp_helix", new THREE.Color(.77,.77,.78), [
-        [
-            v3(0, 0, -bbdist*11/2), // Position of patch (take mean of the nucleotides in the pair)
-            v3(0,0,-1), // Direction of patch (probably similar to prev), also A3 of 5' end nucleotide
-            v3(0, 1, 0) // Orientation, (the 3' end nucleotide minus the 5' end minus direction*pos)
-        ],
-        [v3(0, 0, bbdist*11/2), v3(0,0,1), v3(0,-1,0)]
-    ], [
-        [0, 1], // One strand goes from patch 0 to 1 (5' to 3')
-        [1,0] // One strand goes from patch 1 to 0 (5' to 3')
-    ], [[
-            22, // 5' end id on patch 0
-            30 // 3' end id on patch 0
-        ],[
-            4, // 5' end id on patch 1
-            12 // 3' end id on patch 1
-        ]]
-    ),
-    new BuildingBlock("1bp", new THREE.Color(.77,.77,.78), [
-        [v3(0, 0, -bbdist/2), v3(0,0,-1), v3(0,1,0)],
-        [v3(0, 0, bbdist/2), v3(0,0,1), v3(0,-1,0).applyAxisAngle(v3(0,0,1), angle)]
-    ],
-    [[0, 1], [1, 0]],
-    [[0, 1], [1, 0]]
-    ),
     new BuildingBlock("1bp_end5", new THREE.Color(.45,.45,.45), [
         [v3(0, 0, -bbdist/2), v3(0,0,-1), v3(0,1,0)],
         [v3(0, 0, bbdist/2), v3(0,0,1), v3(0,-1,0).applyAxisAngle(v3(0,0,1), angle)]

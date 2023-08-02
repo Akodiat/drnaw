@@ -76,7 +76,6 @@ class View {
             e.name = 'buildingBlock'
             e.value = b.name;
             e.id = 'b.name'+i;
-            e.checked = i==0;
             l.append(e);
             l.append(b.name);
 
